@@ -4,7 +4,7 @@ echo 正在安装Python RAG示例所需的依赖库...
 echo.
 
 echo 正在安装依赖库...
-pip install pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama
+pip install pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama fastapi uvicorn python-multipart watchdog
 
 echo.
 echo 依赖安装完成。

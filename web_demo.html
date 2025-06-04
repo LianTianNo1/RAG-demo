@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Excel API 演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #e9ecef;
+        }
+
+        .section h2 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #0056b3;
+            background: #f8f9ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #f8fff8;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+
+        .chat-container {
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+            text-align: center;
+            max-width: 100%;
+        }
+
+        .tool-calls {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .tool-call {
+            margin-bottom: 5px;
+        }
+
+        .tool-name {
+            font-weight: bold;
+            color: #0c5460;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .chat-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+
+        .send-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background 0.3s ease;
+        }
+
+        .send-btn:hover {
+            background: #0056b3;
+        }
+
+        .send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .file-list {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .file-size {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .header p {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 RAG Excel API 演示</h1>
+            <p>上传Excel文件，智能问答系统</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 文件上传区域 -->
+            <div class="section">
+                <h2>📁 文件管理</h2>
+
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📤</div>
+                    <p><strong>点击或拖拽上传Excel文件</strong></p>
+                    <p>支持 .xlsx 和 .xls 格式</p>
+                </div>
+
+                <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" multiple>
+
+                <div id="uploadStatus"></div>
+
+                <div class="file-list" id="fileList">
+                    <div style="text-align: center; color: #6c757d;">
+                        正在加载文件列表...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天区域 -->
+            <div class="section">
+                <h2>💬 智能问答</h2>
+
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message system">
+                            欢迎使用RAG Excel智能问答系统！<br>
+                            请先上传Excel文件，然后就可以开始提问了。
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="chatInput"
+                               placeholder="请输入您的问题..."
+                               onkeypress="handleKeyPress(event)">
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            ➤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFileList();
+            setupFileUpload();
+        });
+
+        // 设置文件上传
+        function setupFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.querySelector('.upload-area');
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // 拖拽上传
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                handleFiles(files);
+            });
+        }
+
+        // 处理文件选择
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            handleFiles(files);
+        }
+
+        // 处理文件上传
+        function handleFiles(files) {
+            for (let file of files) {
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    uploadFile(file);
+                } else {
+                    showStatus('error', `文件 ${file.name} 不是Excel格式`);
+                }
+            }
+        }
+
+        // 上传文件
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showStatus('info', `正在上传 ${file.name}...`);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/files/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showStatus('success', result.message);
+                    setTimeout(loadFileList, 1000); // 延迟刷新文件列表
+                } else {
+                    showStatus('error', result.detail || '上传失败');
+                }
+            } catch (error) {
+                showStatus('error', `上传失败: ${error.message}`);
+            }
+        }
+
+        // 加载文件列表
+        async function loadFileList() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/files/list`);
+                const result = await response.json();
+
+                const fileList = document.getElementById('fileList');
+
+                if (result.files && result.files.length > 0) {
+                    fileList.innerHTML = result.files.map(file => `
+                        <div class="file-item">
+                            <div>
+                                <div class="file-name">📄 ${file.filename}</div>
+                                <div class="file-size">${formatFileSize(file.size)} • ${formatDate(file.modified_time)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    fileList.innerHTML = '<div style="text-align: center; color: #6c757d;">暂无文件</div>';
+                }
+            } catch (error) {
+                document.getElementById('fileList').innerHTML =
+                    '<div style="text-align: center; color: #dc3545;">加载文件列表失败</div>';
+            }
+        }
+
+        // 发送消息（流式版本）
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage('user', message);
+            input.value = '';
+
+            // 禁用发送按钮
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '⏳';
+
+            // 创建助手消息容器
+            const assistantMessageDiv = createStreamingMessage();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'rag-excel',
+                        messages: [{ role: 'user', content: message }],
+                        temperature: 0.7,
+                        stream: true  // 启用流式响应
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // 处理流式响应
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullContent = '';
+                let toolCalls = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // 保留不完整的行
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+
+                        if (line.startsWith('data: ')) {
+                            const dataStr = line.slice(6);
+
+                            if (dataStr.trim() === '[DONE]') {
+                                // 流式响应完成，添加工具调用信息
+                                if (toolCalls.length > 0) {
+                                    updateStreamingMessage(assistantMessageDiv, fullContent, toolCalls);
+                                }
+                                break;
+                            }
+
+                            try {
+                                const data = JSON.parse(dataStr);
+
+                                if (data.choices && data.choices[0]) {
+                                    const choice = data.choices[0];
+                                    const delta = choice.delta || {};
+
+                                    // 处理内容
+                                    if (delta.content) {
+                                        fullContent += delta.content;
+                                        updateStreamingMessageContent(assistantMessageDiv, fullContent);
+                                    }
+
+                                    // 处理工具调用
+                                    if (delta.tool_calls) {
+                                        for (const toolCall of delta.tool_calls) {
+                                            if (toolCall.function && toolCall.function.name) {
+                                                toolCalls.push(toolCall);
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn('解析SSE数据失败:', e, dataStr);
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                updateStreamingMessage(assistantMessageDiv, `连接错误: ${error.message}`, []);
+            } finally {
+                // 恢复发送按钮
+                sendBtn.disabled = false;
+                sendBtn.textContent = '➤';
+            }
+        }
+
+        // 创建流式消息容器
+        function createStreamingMessage() {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            messageDiv.innerHTML = '<div class="content">🤖 正在思考...</div>';
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageDiv;
+        }
+
+        // 更新流式消息内容
+        function updateStreamingMessageContent(messageDiv, content) {
+            const contentDiv = messageDiv.querySelector('.content') || messageDiv.querySelector('div');
+            if (contentDiv) {
+                contentDiv.textContent = content;
+            }
+
+            // 自动滚动到底部
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 更新流式消息（包含工具调用）
+        function updateStreamingMessage(messageDiv, content, toolCalls) {
+            let messageHTML = `<div class="content">${content}</div>`;
+
+            // 如果有工具调用信息，显示出来
+            if (toolCalls && toolCalls.length > 0) {
+                messageHTML += '<div class="tool-calls">';
+                messageHTML += '<div style="font-weight: bold; margin-bottom: 5px;">🔧 工具调用:</div>';
+                toolCalls.forEach(toolCall => {
+                    if (toolCall.function && toolCall.function.name) {
+                        let args = {};
+                        try {
+                            args = JSON.parse(toolCall.function.arguments || '{}');
+                        } catch (e) {
+                            args = { raw: toolCall.function.arguments };
+                        }
+
+                        messageHTML += `
+                            <div class="tool-call">
+                                <span class="tool-name">${toolCall.function.name}</span>:
+                                ${JSON.stringify(args, null, 2)}
+                            </div>
+                        `;
+                    }
+                });
+                messageHTML += '</div>';
+            }
+
+            messageDiv.innerHTML = messageHTML;
+        }
+
+        // 添加消息到聊天区域
+        function addMessage(role, content, toolCalls = null) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            let messageHTML = `<div>${content}</div>`;
+
+            // 如果有工具调用信息，显示出来
+            if (toolCalls && toolCalls.length > 0) {
+                messageHTML += '<div class="tool-calls">';
+                messageHTML += '<div style="font-weight: bold; margin-bottom: 5px;">🔧 工具调用:</div>';
+                toolCalls.forEach(toolCall => {
+                    const args = JSON.parse(toolCall.function.arguments);
+                    messageHTML += `
+                        <div class="tool-call">
+                            <span class="tool-name">${toolCall.function.name}</span>:
+                            ${JSON.stringify(args, null, 2)}
+                        </div>
+                    `;
+                });
+                messageHTML += '</div>';
+            }
+
+            messageDiv.innerHTML = messageHTML;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 处理回车键
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 显示状态消息
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+
+            // 3秒后自动清除成功消息
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.textContent = '';
+                    statusDiv.className = '';
+                }, 3000);
+            }
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化日期
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN');
+        }
+    </script>
+</body>
+</html>

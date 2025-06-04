@@ -1,82 +1,193 @@
-# Excel RAG系统
+# Excel RAG API系统
 
-这是一个基于检索增强生成(RAG)的系统，能够从Excel文件中检索信息并使用本地Ollama大语言模型来回答用户问题。
+这是一个基于检索增强生成(RAG)的API服务，能够从Excel文件中检索信息并使用本地Ollama大语言模型来回答用户问题。系统提供标准的REST API接口，支持文件上传、智能问答等功能。
 
-## 功能特点
+## 🚀 版本更新
 
+### v2.0 - API服务版本
+- ✨ **标准API接口**: 提供兼容OpenAI格式的 `/v1/chat/completions` 接口
+- 📤 **文件上传**: 支持通过API上传Excel文件到知识库
+- 🔧 **工具调用展示**: 类似MCP，显示工具使用信息（excel_search、llm_generate）
+- 🎯 **智能RAG触发**: 只在文件变化时重新构建向量库，提升性能
+- 🌐 **Web演示界面**: 提供可视化的文件上传和聊天界面
+- 📊 **文件管理**: 支持文件列表查看、删除等操作
+- ⚡ **异步处理**: 使用FastAPI提供高性能异步服务
+
+### v1.0 - 命令行版本
 - 📊 **Excel文件处理**: 自动读取指定目录下的所有Excel文件和工作表
 - 🔍 **智能检索**: 使用向量数据库(FAISS)进行语义相似度检索
 - 🤖 **本地大模型**: 集成Ollama本地大语言模型，支持中文问答
 - 💬 **交互式问答**: 支持命令行交互式问答界面
 - 🧪 **自动测试**: 内置测试功能，自动验证系统功能
 
+## 功能特点
+
+### 🎯 核心功能
+- **标准API接口**: 兼容OpenAI格式的聊天接口
+- **文件上传管理**: 支持Excel文件上传、列表查看、删除
+- **智能RAG检索**: 基于文件内容的语义检索
+- **工具调用展示**: 显示excel_search和llm_generate工具使用情况
+- **性能优化**: 智能缓存，只在文件变化时重建向量库
+
+### 🔧 技术特性
+- **异步处理**: FastAPI提供高性能异步服务
+- **文件监控**: 自动检测文件变化，智能更新向量库
+- **向量缓存**: 持久化向量数据库，避免重复计算
+- **错误处理**: 完善的异常处理和错误提示
+- **CORS支持**: 支持跨域请求，便于前端集成
+
 ## 项目结构
 
 ```
 RAG_TEST/
-├── rag_excel.py              # 主要的Python代码
-├── install_dependencies.sh   # 依赖安装脚本
-├── create_sample_data.py     # 创建示例数据的脚本
-├── data/                     # 存放Excel文件的目录
-│   └── sample_data.xlsx      # 示例Excel文件
-└── README.md                 # 项目说明文档
+├── rag_api_server.py         # 🚀 主要的API服务器 (v2.0)
+├── rag_excel.py              # 📜 命令行版本 (v1.0)
+├── test_api_client.py        # 🧪 API客户端测试脚本
+├── start_server.py           # ⚡ 服务器启动脚本
+├── web_demo.html             # 🌐 Web演示界面
+├── install_dependencies.sh   # 🐧 Linux/macOS依赖安装脚本
+├── install_dependencies.bat  # 🪟 Windows依赖安装脚本
+├── create_sample_data.py     # 📊 创建示例数据的脚本
+├── create_excel_simple.py    # 📄 简单Excel创建脚本
+├── data/                     # 📁 示例数据目录
+│   ├── sample_data.xlsx      # 示例Excel文件
+│   ├── employees.csv         # 员工信息CSV
+│   └── projects.csv          # 项目信息CSV
+├── knowledge_base/           # 🗄️ 知识库文件存储目录 (运行时创建)
+├── vector_store/             # 🔍 向量数据库存储目录 (运行时创建)
+├── README.md                 # 📖 项目说明文档
+└── QUICK_START.md           # 🚀 快速开始指南
 ```
 
-## 安装和使用
+## 🚀 快速开始
 
-### 1. 安装Ollama并拉取模型
-
-首先访问 [https://ollama.com/](https://ollama.com/) 下载并安装Ollama。
-
-然后在终端中运行以下命令拉取推荐的中文模型：
+### 方法一：一键启动 (推荐)
 
 ```bash
-ollama pull qwen2:7b-instruct
+# 1. 安装依赖
+pip install fastapi uvicorn pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama python-multipart watchdog
+
+# 2. 安装并启动Ollama qwen3:8b qwen3:4b
+ollama pull qwen3:8b
+
+# 3. 启动服务器
+python start_server.py
 ```
 
-或者拉取其他模型：
+### 方法二：手动启动
+
+#### 1. 安装Ollama并拉取模型
+
+访问 [https://ollama.com/](https://ollama.com/) 下载并安装Ollama。
 
 ```bash
+# 拉取推荐的中文模型
+ollama pull qwen3:8b
+
+# 或者拉取其他模型
+ollama pull qwen3:4b
 ollama pull llama3
 ```
 
-确保Ollama服务正在运行。
-
-### 2. 安装Python依赖
-
-在项目根目录下运行：
+#### 2. 安装Python依赖
 
 ```bash
-# Windows (PowerShell)
-.\install_dependencies.sh
+# Windows
+install_dependencies.bat
 
 # Linux/macOS
 bash install_dependencies.sh
+
+# 或手动安装
+pip install fastapi uvicorn pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama python-multipart watchdog
 ```
 
-或者手动安装：
+#### 3. 启动API服务器
 
 ```bash
-pip install pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama
+# 直接启动
+python rag_api_server.py
+
+# 或使用启动脚本（包含环境检查）
+python start_server.py
 ```
 
-### 3. 准备Excel数据
+#### 4. 访问服务
 
-将你的Excel文件放入 `data/` 目录下。系统会自动读取该目录下的所有 `.xlsx` 文件。
+- 🌐 **Web演示界面**: http://localhost:8000/web_demo.html
+- 📖 **API文档**: http://localhost:8000/docs
+- 🔄 **ReDoc文档**: http://localhost:8000/redoc
+- 🧪 **测试客户端**: `python test_api_client.py`
 
-如果没有Excel文件，可以运行以下命令创建示例数据：
+## 📡 API接口说明
+
+### 聊天接口 (兼容OpenAI格式)
 
 ```bash
-python create_sample_data.py
+POST /v1/chat/completions
+Content-Type: application/json
+
+{
+  "model": "rag-excel",
+  "messages": [
+    {"role": "user", "content": "张三在哪个部门？"}
+  ],
+  "temperature": 0.7
+}
 ```
 
-### 4. 运行RAG系统
+**响应示例**:
+```json
+{
+  "id": "chatcmpl-20241201123456",
+  "object": "chat.completion",
+  "created": 1701234567,
+  "model": "rag-excel",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "根据提供的信息，张三在技术部工作...",
+        "tool_calls": [
+          {
+            "id": "call_20241201_123456",
+            "type": "function",
+            "function": {
+              "name": "excel_search",
+              "arguments": "{\"query\": \"张三在哪个部门？\", \"files\": \"all\", \"top_k\": 3}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 15,
+    "completion_tokens": 25,
+    "total_tokens": 40
+  }
+}
+```
+
+### 文件上传接口
 
 ```bash
-python rag_excel.py
+POST /v1/files/upload
+Content-Type: multipart/form-data
+
+# 上传Excel文件
+curl -X POST "http://localhost:8000/v1/files/upload" \
+     -F "file=@your_file.xlsx"
 ```
 
-程序会首先运行测试模式，然后进入交互式问答模式。
+### 其他接口
+
+- `GET /health` - 健康检查
+- `GET /v1/files/list` - 文件列表
+- `DELETE /v1/files/{filename}` - 删除文件
+- `POST /v1/vector_store/rebuild` - 重建向量库
 
 ## 使用示例
 

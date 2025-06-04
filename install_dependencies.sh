@@ -8,7 +8,7 @@ echo "正在创建并激活虚拟环境 (可选，但推荐)..."
 # source rag_env/bin/activate
 
 echo "正在安装依赖库..."
-pip install pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama
+pip install pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama fastapi uvicorn python-multipart watchdog
 
 # 如果你的机器有NVIDIA GPU并且安装了CUDA，可以考虑安装 faiss-gpu 以获得更好的性能
 # pip install faiss-gpu
