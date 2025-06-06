@@ -19,7 +19,8 @@ from pathlib import Path
 # FastAPI相关导入
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import asyncio
 
@@ -631,6 +632,10 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# 挂载静态文件
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
@@ -642,6 +647,15 @@ app.add_middleware(
 
 # --- API端点 ---
 
+@app.get("/app")
+async def frontend_app():
+    """前端应用入口"""
+    index_path = os.path.join("static", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path, media_type="text/html")
+    else:
+        raise HTTPException(status_code=404, detail="前端应用未找到，请先构建前端")
+
 @app.get("/")
 async def root():
     """根端点，返回API信息"""
@@ -649,6 +663,7 @@ async def root():
         "message": "RAG Excel API服务正在运行",
         "version": "2.0.0",
         "docs": "/docs",
+        "app": "/app",
         "web_demo": "/web_demo.html",
         "endpoints": {
             "chat": "/v1/chat/completions",

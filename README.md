@@ -43,12 +43,25 @@ RAG_TEST/
 ├── rag_api_server.py         # 🚀 主要的API服务器 (v2.0)
 ├── rag_excel.py              # 📜 命令行版本 (v1.0)
 ├── test_api_client.py        # 🧪 API客户端测试脚本
+├── test_stream.py            # 🌊 流式响应测试脚本
 ├── start_server.py           # ⚡ 服务器启动脚本
-├── web_demo.html             # 🌐 Web演示界面
+├── web_demo.html             # 🌐 简单Web演示界面
+├── frontend/                 # ⚛️ React前端项目
+│   ├── src/                  # 源代码目录
+│   │   ├── components/       # React组件
+│   │   ├── App.jsx          # 主应用组件
+│   │   ├── main.jsx         # 应用入口
+│   │   └── index.css        # 全局样式
+│   ├── package.json         # 前端依赖配置
+│   ├── vite.config.js       # Vite构建配置
+│   └── README.md            # 前端说明文档
+├── static/                   # 📦 构建后的前端文件 (构建时生成)
+├── build_frontend.py         # 🔨 前端构建脚本
+├── build_frontend.bat        # 🪟 Windows前端构建脚本
+├── setup_frontend.py         # 🛠️ 前端环境设置脚本
 ├── install_dependencies.sh   # 🐧 Linux/macOS依赖安装脚本
 ├── install_dependencies.bat  # 🪟 Windows依赖安装脚本
 ├── create_sample_data.py     # 📊 创建示例数据的脚本
-├── create_excel_simple.py    # 📄 简单Excel创建脚本
 ├── data/                     # 📁 示例数据目录
 │   ├── sample_data.xlsx      # 示例Excel文件
 │   ├── employees.csv         # 员工信息CSV
@@ -56,22 +69,40 @@ RAG_TEST/
 ├── knowledge_base/           # 🗄️ 知识库文件存储目录 (运行时创建)
 ├── vector_store/             # 🔍 向量数据库存储目录 (运行时创建)
 ├── README.md                 # 📖 项目说明文档
-└── QUICK_START.md           # 🚀 快速开始指南
+├── QUICK_START.md           # 🚀 快速开始指南
+├── STREAM_GUIDE.md          # 🌊 流式响应指南
+└── API_GUIDE.md             # 📡 API使用指南
 ```
 
 ## 🚀 快速开始
 
-### 方法一：一键启动 (推荐)
+### 方法一：完整安装 (推荐)
 
 ```bash
-# 1. 安装依赖
+# 1. 安装Python依赖
 pip install fastapi uvicorn pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama python-multipart watchdog
 
 # 2. 安装并启动Ollama qwen3:8b qwen3:4b
 ollama pull qwen3:8b
 
-# 3. 启动服务器
+# 3. 设置前端环境 (可选，使用现代React界面)
+python setup_frontend.py
+
+# 4. 启动服务器
 python start_server.py
+```
+
+### 方法二：仅后端服务
+
+```bash
+# 1. 安装依赖
+pip install fastapi uvicorn pandas openpyxl sentence-transformers faiss-cpu langchain langchain-community langchain-text-splitters ollama python-multipart watchdog
+
+# 2. 启动Ollama
+ollama pull qwen2:7b-instruct
+
+# 3. 启动服务器
+python rag_api_server.py
 ```
 
 ### 方法二：手动启动
@@ -114,10 +145,12 @@ python start_server.py
 
 #### 4. 访问服务
 
-- 🌐 **Web演示界面**: http://localhost:8000/web_demo.html
+- ⚛️ **React前端应用**: http://localhost:8000/app (推荐)
+- 🌐 **简单Web界面**: http://localhost:8000/web_demo.html
 - 📖 **API文档**: http://localhost:8000/docs
 - 🔄 **ReDoc文档**: http://localhost:8000/redoc
 - 🧪 **测试客户端**: `python test_api_client.py`
+- 🌊 **流式测试**: `python test_stream.py`
 
 ## 📡 API接口说明
 
