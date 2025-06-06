@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react'
 import { Layout, Row, Col, Card, Typography, Space, Divider } from 'antd'
-import { 
-  RobotOutlined, 
-  FileTextOutlined, 
+import {
+  RobotOutlined,
+  FileTextOutlined,
   CloudServerOutlined,
-  GithubOutlined 
+  GithubOutlined
 } from '@ant-design/icons'
 import ChatPanel from './components/ChatPanel'
 import FileManager from './components/FileManager'
 import SystemStatus from './components/SystemStatus'
 import './App.css'
+import { http } from './utils/fetch'
 
 const { Header, Content, Footer } = Layout
 const { Title, Text } = Typography
 
 /**
  * 主应用组件
- * 
+ *
  * @remarks 整合聊天面板、文件管理和系统状态等功能模块
  * @returns React组件
  */
@@ -39,7 +40,7 @@ function App() {
   useEffect(() => {
     const checkSystemStatus = async () => {
       try {
-        const response = await fetch('/health')
+        const response = await http('/health')
         if (response.ok) {
           const data = await response.json()
           setSystemStatus({
@@ -81,12 +82,12 @@ function App() {
             <Divider type="vertical" className="header-divider" />
             <Text className="subtitle">智能Excel问答系统</Text>
           </Space>
-          
+
           <Space align="center">
             <SystemStatus status={systemStatus} />
-            <a 
-              href="http://localhost:8000/docs" 
-              target="_blank" 
+            <a
+              href="http://localhost:8000/docs"
+              target="_blank"
               rel="noopener noreferrer"
               className="header-link"
             >
@@ -102,7 +103,7 @@ function App() {
           <Row gutter={[24, 24]} className="main-row">
             {/* 左侧：文件管理 */}
             <Col xs={24} lg={8} xl={6}>
-              <Card 
+              <Card
                 title={
                   <Space>
                     <FileTextOutlined />
@@ -112,7 +113,7 @@ function App() {
                 className="file-manager-card"
                 bodyStyle={{ padding: '16px' }}
               >
-                <FileManager 
+                <FileManager
                   onFileChange={triggerRefresh}
                   fileCount={systemStatus.fileCount}
                 />
@@ -121,7 +122,7 @@ function App() {
 
             {/* 右侧：聊天面板 */}
             <Col xs={24} lg={16} xl={18}>
-              <Card 
+              <Card
                 title={
                   <Space>
                     <RobotOutlined />
@@ -131,7 +132,7 @@ function App() {
                 className="chat-panel-card"
                 bodyStyle={{ padding: 0 }}
               >
-                <ChatPanel 
+                <ChatPanel
                   systemOnline={systemStatus.online}
                   vectorStoreReady={systemStatus.vectorStoreReady}
                 />
@@ -148,9 +149,9 @@ function App() {
             <Text type="secondary">
               © 2024 RAG Excel API - 基于检索增强生成的智能问答系统
             </Text>
-            <a 
-              href="https://github.com" 
-              target="_blank" 
+            <a
+              href="https://github.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="footer-link"
             >

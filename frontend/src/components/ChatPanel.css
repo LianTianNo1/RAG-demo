@@ -2,7 +2,7 @@
 .chat-panel {
   display: flex;
   flex-direction: column;
-  height: 600px;
+  height: calc(100vh - 230px);
   background: #fff;
 }
 
@@ -92,19 +92,19 @@
   .chat-panel {
     height: 500px;
   }
-  
+
   .messages-container {
     padding: 12px;
   }
-  
+
   .input-container {
     padding: 12px;
   }
-  
+
   .input-wrapper {
     gap: 8px;
   }
-  
+
   .input-actions .ant-btn-primary {
     min-width: 60px;
     font-size: 12px;
@@ -115,17 +115,17 @@
   .chat-panel {
     height: 450px;
   }
-  
+
   .input-wrapper {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
   }
-  
+
   .input-actions {
     justify-content: flex-end;
   }
-  
+
   .message-input {
     width: 100%;
   }

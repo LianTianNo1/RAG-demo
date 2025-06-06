@@ -1,32 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { 
-  Upload, 
-  List, 
-  Button, 
-  Space, 
-  Typography, 
-  message, 
+import {
+  Upload,
+  List,
+  Button,
+  Space,
+  Typography,
+  message,
   Popconfirm,
   Empty,
   Spin,
   Progress,
   Tag
 } from 'antd'
-import { 
-  InboxOutlined, 
-  FileExcelOutlined, 
+import {
+  InboxOutlined,
+  FileExcelOutlined,
   DeleteOutlined,
   ReloadOutlined,
   CloudUploadOutlined
 } from '@ant-design/icons'
 import './FileManager.css'
+import { http } from '../utils/fetch'
 
 const { Dragger } = Upload
 const { Text } = Typography
 
 /**
  * 文件管理组件
- * 
+ *
  * @remarks 处理Excel文件的上传、列表显示、删除等功能
  * @param {Object} props - 组件属性
  * @param {Function} props.onFileChange - 文件变化回调
@@ -44,7 +45,7 @@ function FileManager({ onFileChange, fileCount }) {
   const loadFiles = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/v1/files/list')
+      const response = await http('/v1/files/list')
       if (response.ok) {
         const data = await response.json()
         setFiles(data.files || [])
@@ -123,7 +124,7 @@ function FileManager({ onFileChange, fileCount }) {
         })
       }, 200)
 
-      const response = await fetch('/v1/files/upload', {
+      const response = await http('/v1/files/upload', {
         method: 'POST',
         body: formData
       })
@@ -134,7 +135,7 @@ function FileManager({ onFileChange, fileCount }) {
       if (response.ok) {
         const result = await response.json()
         message.success(result.message || '文件上传成功')
-        
+
         // 延迟刷新文件列表，等待后台处理
         setTimeout(() => {
           loadFiles()
@@ -158,7 +159,7 @@ function FileManager({ onFileChange, fileCount }) {
   // 删除文件
   const deleteFile = async (filename) => {
     try {
-      const response = await fetch(`/v1/files/${encodeURIComponent(filename)}`, {
+      const response = await http(`/v1/files/${encodeURIComponent(filename)}`, {
         method: 'DELETE'
       })
 
@@ -206,9 +207,9 @@ function FileManager({ onFileChange, fileCount }) {
         {/* 上传进度 */}
         {uploading && (
           <div className="upload-progress">
-            <Progress 
-              percent={Math.round(uploadProgress)} 
-              size="small" 
+            <Progress
+              percent={Math.round(uploadProgress)}
+              size="small"
               status="active"
             />
           </div>
@@ -242,8 +243,8 @@ function FileManager({ onFileChange, fileCount }) {
               description="暂无Excel文件"
               imageStyle={{ height: 60 }}
             >
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<CloudUploadOutlined />}
                 onClick={() => fileInputRef.current?.click()}
               >

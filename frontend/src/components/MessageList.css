@@ -9,7 +9,7 @@
 .message-item {
   display: flex;
   gap: 12px;
-  animation: messageSlideIn 0.3s ease-out;
+  /* animation: messageSlideIn 0.3s ease-out; */
 }
 
 .message-item.user {
@@ -35,6 +35,14 @@
   border-radius: 12px;
   margin: 0 auto;
   max-width: 80%;
+}
+
+.message-item.tool .message-content {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 1px solid #e1bee7;
+  border-radius: 12px;
+  margin: 0 auto;
+  max-width: 85%;
 }
 
 .message-item.streaming .message-content {
@@ -68,6 +76,11 @@
 .message-item.system .message-avatar {
   background: #f0f0f0;
   color: #8c8c8c;
+}
+
+.message-item.tool .message-avatar {
+  background: linear-gradient(135deg, #722ed1 0%, #531dab 100%);
+  color: white;
 }
 
 /* 消息内容样式 */
@@ -152,7 +165,7 @@
   background: rgba(0, 0, 0, 0.06);
   padding: 2px 4px;
   border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
   font-size: 0.9em;
 }
 
@@ -179,6 +192,17 @@
   font-style: italic;
 }
 
+/* 工具消息样式 */
+.tool-message {
+  text-align: center;
+}
+
+.tool-message-text {
+  color: #7b1fa2;
+  font-weight: 500;
+  font-size: 14px;
+}
+
 /* 工具调用样式 */
 .tool-calls-section {
   margin-top: 12px;
@@ -200,12 +224,13 @@
 .tool-args {
   display: block;
   white-space: pre-wrap;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
   font-size: 12px;
   line-height: 1.4;
   background: none !important;
   padding: 0 !important;
   color: #24292e;
+  text-align: left;
 }
 
 /* 来源信息样式 */
@@ -246,15 +271,21 @@
 
 /* 打字机效果 */
 .typing-cursor::after {
-  content: '|';
+  content: "|";
   animation: blink 1s infinite;
   color: #1890ff;
   font-weight: bold;
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* 消息动画 */
@@ -275,31 +306,32 @@
     max-width: 85%;
     padding: 10px 12px;
   }
-  
+
   .message-item.user .message-content {
     max-width: 80%;
   }
-  
+
   .message-avatar {
     width: 32px;
     height: 32px;
     font-size: 14px;
   }
-  
+
   .message-header {
     margin-bottom: 6px;
   }
-  
+
   .message-role {
     font-size: 11px;
   }
-  
+
   .message-time {
     font-size: 10px;
   }
-  
+
   .tool-args {
     font-size: 11px;
+    text-align: left;
   }
 }
 
@@ -307,20 +339,20 @@
   .message-list {
     gap: 12px;
   }
-  
+
   .message-content {
     max-width: 90%;
     padding: 8px 10px;
   }
-  
+
   .message-item.user .message-content {
     max-width: 85%;
   }
-  
+
   .message-item.system .message-content {
     max-width: 95%;
   }
-  
+
   .message-avatar {
     width: 28px;
     height: 28px;

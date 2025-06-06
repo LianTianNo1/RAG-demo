@@ -1,27 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { 
-  Input, 
-  Button, 
-  Space, 
-  Alert, 
+import {
+  Input,
+  Button,
+  Space,
+  Alert,
   Spin,
   Empty,
   Tooltip
 } from 'antd'
-import { 
-  SendOutlined, 
+import {
+  SendOutlined,
   ClearOutlined,
   ExclamationCircleOutlined,
   RobotOutlined
 } from '@ant-design/icons'
 import MessageList from './MessageList'
 import './ChatPanel.css'
+import { http } from '../utils/fetch'
 
 const { TextArea } = Input
 
 /**
  * 聊天面板组件
- * 
+ *
  * @remarks 处理用户输入、发送消息、接收流式响应等功能
  * @param {Object} props - 组件属性
  * @param {boolean} props.systemOnline - 系统是否在线
@@ -39,7 +40,7 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
       sources: []
     }
   ])
-  
+
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [currentStreamingMessage, setCurrentStreamingMessage] = useState(null)
@@ -51,13 +52,16 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  // useEffect(() => {
+  //   scrollToBottom()
+  // }, [messages, currentStreamingMessage])
   useEffect(() => {
     scrollToBottom()
-  }, [messages, currentStreamingMessage])
+  }, [messages.length])
 
   // 生成消息ID
   const generateMessageId = () => {
-    return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   }
 
   // 添加消息
@@ -66,27 +70,46 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
   }
 
   // 更新流式消息
-  const updateStreamingMessage = (content, toolCalls = [], sources = []) => {
-    setCurrentStreamingMessage({
-      id: 'streaming',
+  const updateStreamingMessage = (content, toolCalls = [], sources = [], isTyping = false) => {
+    const streamingMessage = {
+      id: generateMessageId(),
       role: 'assistant',
       content,
       timestamp: new Date().toISOString(),
       toolCalls,
       sources,
-      isStreaming: true
+      isStreaming: true,
+      isTyping
+    };
+    setCurrentStreamingMessage(streamingMessage)
+    // 更新 messages 的最后一条消息
+    setMessages(prev => {
+      // 如果最后一条消息是 机器人 就直接更新，如果不是则添加
+      if (prev[prev.length - 1].role === 'assistant') {
+        return [...prev.slice(0, -1), streamingMessage]
+      } else {
+        return [...prev, streamingMessage]
+      }
     })
+  }
+
+  // 添加工具调用消息
+  const addToolCallMessage = (toolCall) => {
+    const toolMessage = {
+      id: `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      role: 'tool',
+      content: '',
+      timestamp: new Date().toISOString(),
+      toolCalls: [toolCall],
+      sources: [],
+      isStreaming: false
+    }
+    setMessages(prev => [...prev, toolMessage])
   }
 
   // 完成流式消息
   const finishStreamingMessage = () => {
-    if (currentStreamingMessage) {
-      addMessage({
-        ...currentStreamingMessage,
-        isStreaming: false
-      })
-      setCurrentStreamingMessage(null)
-    }
+
   }
 
   // 发送消息
@@ -117,29 +140,41 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
       return
     }
 
-    // 添加用户消息
-    addMessage({
-      role: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-      toolCalls: [],
-      sources: []
-    })
-
-    // 清空输入框
+    // 清空输入框和重置状态
     setInputValue('')
     setIsLoading(true)
+    setCurrentStreamingMessage(null) // 清理之前的流式消息
 
     try {
+      // 构建完整的对话历史（包含当前用户消息）
+      const conversationHistory = messages
+        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+
+      // 添加当前用户消息
+      conversationHistory.push({ role: 'user', content: message })
+
+      // 添加用户消息到界面显示
+      addMessage({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString(),
+        toolCalls: [],
+        sources: []
+      })
+
       // 发送流式请求
-      const response = await fetch('/v1/chat/completions', {
+      const response = await http('/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: 'rag-excel',
-          messages: [{ role: 'user', content: message }],
+          messages: conversationHistory,
           temperature: 0.7,
           stream: true
         })
@@ -154,8 +189,12 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
       const decoder = new TextDecoder()
       let buffer = ''
       let fullContent = ''
-      let toolCalls = []
+      let allToolCalls = []
       let sources = []
+      let hasStartedContent = false
+
+      // 创建初始的流式消息
+      updateStreamingMessage('🤖 正在思考...', [], [], true)
 
       while (true) {
         const { done, value } = await reader.read()
@@ -173,7 +212,9 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
 
             if (dataStr.trim() === '[DONE]') {
               // 流式响应完成
-              finishStreamingMessage()
+              setTimeout(() => {
+                finishStreamingMessage()
+              }, 500)
               break
             }
 
@@ -184,31 +225,56 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
                 const choice = data.choices[0]
                 const delta = choice.delta || {}
 
-                // 处理内容
-                if (delta.content) {
-                  fullContent += delta.content
-                  updateStreamingMessage(fullContent, toolCalls, sources)
-                }
-
-                // 处理工具调用
+                // 处理工具调用 - 收集但不立即显示
                 if (delta.tool_calls) {
                   for (const toolCall of delta.tool_calls) {
                     if (toolCall.function && toolCall.function.name) {
                       // 检查是否已存在相同的工具调用
-                      const existingIndex = toolCalls.findIndex(tc => tc.id === toolCall.id)
+                      const existingIndex = allToolCalls.findIndex(tc => tc.id === toolCall.id)
                       if (existingIndex >= 0) {
-                        toolCalls[existingIndex] = toolCall
+                        allToolCalls[existingIndex] = toolCall
                       } else {
-                        toolCalls.push(toolCall)
+                        allToolCalls.push(toolCall)
                       }
-                      updateStreamingMessage(fullContent, [...toolCalls], sources)
                     }
                   }
+
+                  // 更新流式消息显示工具调用状态
+                  if (allToolCalls.length > 0 && !hasStartedContent) {
+                    const toolNames = allToolCalls.map(tc => tc.function.name).join(', ')
+                    updateStreamingMessage(`🔧 使用工具: ${toolNames}`, allToolCalls, sources, true)
+                  }
+                }
+
+                // 处理内容 - 逐字显示
+                if (delta.content) {
+                  if (!hasStartedContent) {
+                    // 第一次收到内容，清除"正在思考"状态
+                    fullContent = ''
+                    hasStartedContent = true
+                  }
+
+                  fullContent += delta.content
+
+                  // 实现打字机效果 - 逐字显示，包含工具调用信息
+                  updateStreamingMessage(fullContent, allToolCalls, sources, true)
                 }
 
                 // 检查是否完成
                 if (choice.finish_reason === 'stop') {
-                  finishStreamingMessage()
+                  // 添加来源信息到最终内容
+                  if (sources.length > 0) {
+                    fullContent += '\n\n📚 **信息来源:**\n'
+                    sources.forEach((source, index) => {
+                      fullContent += `${index + 1}. 文件: ${source.file}, 工作表: ${source.sheet}\n`
+                    })
+                  }
+
+                  updateStreamingMessage(fullContent, allToolCalls, sources, false)
+                  // 延迟100ms 再调用 finishStreamingMessage
+                  setTimeout(() => {
+                    finishStreamingMessage()
+                  }, 500)
                   break
                 }
               }
@@ -301,8 +367,8 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
             description="暂无对话消息"
           />
         ) : (
-          <MessageList 
-            messages={messages} 
+          <MessageList
+            messages={messages}
             streamingMessage={currentStreamingMessage}
           />
         )}
@@ -318,17 +384,17 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={
-              !systemOnline 
-                ? "系统离线，无法发送消息..." 
-                : !vectorStoreReady 
-                ? "请先上传Excel文件..." 
+              !systemOnline
+                ? "系统离线，无法发送消息..."
+                : !vectorStoreReady
+                ? "请先上传Excel文件..."
                 : "输入您的问题... (Shift+Enter换行，Enter发送)"
             }
             disabled={!systemOnline || !vectorStoreReady || isLoading}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className="message-input"
           />
-          
+
           <Space className="input-actions">
             <Tooltip title="清空对话">
               <Button
@@ -338,7 +404,7 @@ function ChatPanel({ systemOnline, vectorStoreReady }) {
                 type="text"
               />
             </Tooltip>
-            
+
             <Button
               type="primary"
               icon={isLoading ? <Spin size="small" /> : <SendOutlined />}

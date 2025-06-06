@@ -256,7 +256,27 @@ class EnhancedRAGSystem:
         for file_path in excel_files:
             print(f"  正在处理文件: {file_path.name}")
             try:
-                xls = pd.read_excel(file_path, sheet_name=None)
+                # 根据文件扩展名选择合适的引擎
+                file_extension = file_path.suffix.lower()
+                if file_extension == '.xls':
+                    # 对于 .xls 文件，尝试使用 xlrd 引擎
+                    try:
+                        xls = pd.read_excel(file_path, sheet_name=None, engine='xlrd')
+                    except ImportError:
+                        print(f"    警告：缺少 xlrd 依赖，无法读取 .xls 文件 {file_path.name}")
+                        print(f"    请运行: pip install xlrd")
+                        continue
+                    except Exception as e:
+                        print(f"    使用 xlrd 引擎读取 .xls 文件失败，尝试默认引擎: {e}")
+                        try:
+                            xls = pd.read_excel(file_path, sheet_name=None)
+                        except Exception as e2:
+                            print(f"    使用默认引擎也失败: {e2}")
+                            continue
+                else:
+                    # 对于 .xlsx 文件，使用默认引擎（openpyxl）
+                    xls = pd.read_excel(file_path, sheet_name=None)
+
                 for sheet_name, df in xls.items():
                     if not df.empty:
                         sheet_content = ""
@@ -281,6 +301,9 @@ class EnhancedRAGSystem:
                             all_docs.append(doc)
             except Exception as e:
                 print(f"    处理文件 {file_path.name} 时发生错误: {e}")
+                if "xlrd" in str(e).lower():
+                    print(f"    提示：这是一个 .xls 文件，需要安装 xlrd 依赖")
+                    print(f"    请运行: pip install xlrd")
 
         print(f"Excel文件加载完毕，共加载了 {len(all_docs)} 个文档。")
         return all_docs
@@ -406,13 +429,17 @@ class EnhancedRAGSystem:
                 "function": {
                     "name": "llm_generate",
                     "arguments": {
-                        "context": context_text[:500] + "..." if len(context_text) > 500 else context_text,
+                        # "context": context_text[:500] + "..." if len(context_text) > 500 else context_text,
+                        "context": context_text,
                         "question": user_question,
                         "model": LLM_MODEL_NAME
                     }
                 }
             }
             tool_calls.append(llm_tool_call)
+
+            # 输出一下 context
+            print(f"context: {context_text}")
 
             # 构建提示并生成答案
             prompt_template = ChatPromptTemplate.from_template(
@@ -431,8 +458,29 @@ class EnhancedRAGSystem:
                 """
             )
 
-            rag_chain = prompt_template | self.llm | StrOutputParser()
-            answer = rag_chain.invoke({"context": context_text, "question": user_question})
+            # 使用同步方式生成答案（非流式）
+            try:
+                # 尝试使用Ollama客户端的同步生成
+                import ollama
+                client = ollama.Client()
+
+                # 构建完整的提示
+                formatted_prompt = prompt_template.format(context=context_text, question=user_question)
+
+                # 同步生成响应
+                response = client.generate(
+                    model=LLM_MODEL_NAME,
+                    prompt=formatted_prompt,
+                    stream=False
+                )
+
+                answer = response.get('response', '')
+
+            except Exception as e:
+                print(f"Ollama客户端调用失败，回退到langchain: {e}")
+                # 回退到原来的langchain方式
+                rag_chain = prompt_template | self.llm | StrOutputParser()
+                answer = rag_chain.invoke({"context": context_text, "question": user_question})
 
             return {
                 "answer": answer,
@@ -535,7 +583,8 @@ class EnhancedRAGSystem:
                 "function": {
                     "name": "llm_generate",
                     "arguments": {
-                        "context": context_text[:500] + "..." if len(context_text) > 500 else context_text,
+                        # "context": context_text[:500] + "..." if len(context_text) > 500 else context_text,
+                        "context": context_text,
                         "question": user_question,
                         "model": LLM_MODEL_NAME
                     }
@@ -566,32 +615,67 @@ class EnhancedRAGSystem:
                 """
             )
 
-            rag_chain = prompt_template | self.llm | StrOutputParser()
-
             # 开始生成答案
             yield {
                 "type": "generation_start"
             }
 
-            # 模拟流式生成（因为当前Ollama不支持真正的流式，我们模拟分块发送）
-            answer = rag_chain.invoke({"context": context_text, "question": user_question})
+            # 真正的流式生成 - 使用Ollama的流式功能
+            try:
+                # 构建完整的提示
+                formatted_prompt = prompt_template.format(context=context_text, question=user_question)
 
-            # 将答案分块发送
-            words = answer.split()
-            chunk_size = 3  # 每次发送3个词
+                # 使用Ollama客户端进行流式生成
+                import ollama
+                client = ollama.Client()
 
-            for i in range(0, len(words), chunk_size):
-                chunk = " ".join(words[i:i + chunk_size])
-                if i + chunk_size < len(words):
-                    chunk += " "
+                # 流式生成响应
+                stream = client.generate(
+                    model=LLM_MODEL_NAME,
+                    prompt=formatted_prompt,
+                    stream=True
+                )
 
-                yield {
-                    "type": "content_chunk",
-                    "content": chunk
-                }
+                full_answer = ""
+                for chunk in stream:
+                    if 'response' in chunk:
+                        content = chunk['response']
+                        full_answer += content
 
-                # 模拟生成延迟
-                await asyncio.sleep(0.1)
+                        # 发送内容块
+                        yield {
+                            "type": "content_chunk",
+                            "content": content
+                        }
+
+                        # 小延迟以避免过快发送
+                        await asyncio.sleep(0.01)
+
+                # 保存完整答案用于后续处理
+                answer = full_answer
+
+            except Exception as stream_error:
+                print(f"流式生成失败，回退到同步模式: {stream_error}")
+                # 回退到原来的同步方式
+                rag_chain = prompt_template | self.llm | StrOutputParser()
+                answer = rag_chain.invoke({"context": context_text, "question": user_question})
+
+                # 将答案分块发送（模拟流式）
+                words = answer.split()
+                chunk_size = 3  # 每次发送3个词
+
+                for i in range(0, len(words), chunk_size):
+                    chunk = " ".join(words[i:i + chunk_size])
+                    if i + chunk_size < len(words):
+                        chunk += " "
+
+                    yield {
+                        "type": "content_chunk",
+                        "content": chunk
+                    }
+
+                    # 模拟生成延迟
+                    await asyncio.sleep(0.1)
 
             # 发送完成信息
             yield {
@@ -794,12 +878,17 @@ async def chat_completions(request: ChatCompletionRequest):
 
     # 非流式响应（原有逻辑）
     try:
-        # 获取最后一条用户消息
+        # 构建完整的对话历史上下文
+        conversation_context = ""
         user_message = None
-        for msg in reversed(request.messages):
+
+        # 收集所有对话历史，构建上下文
+        for msg in request.messages:
             if msg.role == "user":
-                user_message = msg.content
-                break
+                conversation_context += f"用户: {msg.content}\n"
+                user_message = msg.content  # 保存最后一条用户消息
+            elif msg.role == "assistant":
+                conversation_context += f"助手: {msg.content}\n"
 
         if not user_message:
             raise HTTPException(
@@ -807,13 +896,19 @@ async def chat_completions(request: ChatCompletionRequest):
                 detail="未找到用户消息"
             )
 
+        # 如果有对话历史，将其作为上下文传递给RAG系统
+        query_text = user_message
+        if len(request.messages) > 1:
+            # 有对话历史时，将当前问题与历史上下文结合
+            query_text = f"对话历史:\n{conversation_context}\n当前问题: {user_message}"
+
         # 检查是否指定了特定文件（从消息中解析）
         specific_files = None
         # 这里可以添加解析逻辑，比如检查消息中是否包含 "在文件X中" 这样的指令
 
         # 使用RAG系统查询
         rag = get_rag_system()
-        result = rag.query_with_tools(user_message, specific_files)
+        result = rag.query_with_tools(query_text, specific_files)
 
         # 构建响应
         response_id = f"chatcmpl-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -881,16 +976,27 @@ async def generate_stream_response(request: ChatCompletionRequest):
     @returns 异步生成器，产生SSE格式的数据
     """
     try:
-        # 获取最后一条用户消息
+        # 构建完整的对话历史上下文
+        conversation_context = ""
         user_message = None
-        for msg in reversed(request.messages):
+
+        # 收集所有对话历史，构建上下文
+        for msg in request.messages:
             if msg.role == "user":
-                user_message = msg.content
-                break
+                conversation_context += f"用户: {msg.content}\n"
+                user_message = msg.content  # 保存最后一条用户消息
+            elif msg.role == "assistant":
+                conversation_context += f"助手: {msg.content}\n"
 
         if not user_message:
             yield f"data: {json.dumps({'error': '未找到用户消息'}, ensure_ascii=False)}\n\n"
             return
+
+        # 如果有对话历史，将其作为上下文传递给RAG系统
+        query_text = user_message
+        if len(request.messages) > 1:
+            # 有对话历史时，将当前问题与历史上下文结合
+            query_text = f"对话历史:\n{conversation_context}\n当前问题: {user_message}"
 
         # 检查是否指定了特定文件
         specific_files = None
@@ -920,7 +1026,7 @@ async def generate_stream_response(request: ChatCompletionRequest):
         tool_calls_data = []
         sources_data = []
 
-        async for chunk in rag.query_with_tools_stream(user_message, specific_files):
+        async for chunk in rag.query_with_tools_stream(query_text, specific_files):
             chunk_type = chunk.get("type")
 
             if chunk_type == "tool_call":

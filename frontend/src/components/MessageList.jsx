@@ -1,21 +1,22 @@
-import React from 'react'
-import { Space, Tag, Collapse, Typography } from 'antd'
-import { 
-  UserOutlined, 
-  RobotOutlined, 
+import React from "react";
+import { Space, Tag, Collapse, Typography } from "antd";
+import {
+  UserOutlined,
+  RobotOutlined,
   ToolOutlined,
   FileTextOutlined,
-  ClockCircleOutlined
-} from '@ant-design/icons'
-import ReactMarkdown from 'react-markdown'
-import './MessageList.css'
+  ClockCircleOutlined,
+} from "@ant-design/icons";
+import ReactMarkdown from "react-markdown";
+import TypewriterText from "./TypewriterText";
+import "./MessageList.css";
 
-const { Text } = Typography
-const { Panel } = Collapse
+const { Text } = Typography;
+const { Panel } = Collapse;
 
 /**
  * 消息列表组件
- * 
+ *
  * @remarks 显示聊天消息列表，包括用户消息、助手回复、工具调用等
  * @param {Object} props - 组件属性
  * @param {Array} props.messages - 消息列表
@@ -23,32 +24,31 @@ const { Panel } = Collapse
  * @returns React组件
  */
 function MessageList({ messages, streamingMessage }) {
-  
   // 格式化时间
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
 
   // 渲染工具调用
   const renderToolCalls = (toolCalls) => {
-    if (!toolCalls || toolCalls.length === 0) return null
+    if (!toolCalls || toolCalls.length === 0) return null;
 
     return (
       <div className="tool-calls-section">
-        <Collapse 
-          size="small" 
+        <Collapse
+          size="small"
           ghost
           items={toolCalls.map((toolCall, index) => {
-            let args = {}
+            let args = {};
             try {
-              args = JSON.parse(toolCall.function?.arguments || '{}')
+              args = JSON.parse(toolCall.function?.arguments || "{}");
             } catch (e) {
-              args = { raw: toolCall.function?.arguments || '' }
+              args = { raw: toolCall.function?.arguments || "" };
             }
 
             return {
@@ -56,8 +56,10 @@ function MessageList({ messages, streamingMessage }) {
               label: (
                 <Space>
                   <ToolOutlined />
-                  <Text strong>{toolCall.function?.name || 'unknown'}</Text>
-                  <Tag color="blue" size="small">工具调用</Tag>
+                  <Text strong>{toolCall.function?.name || "unknown"}</Text>
+                  <Tag color="blue" size="small">
+                    工具调用
+                  </Tag>
                 </Space>
               ),
               children: (
@@ -66,17 +68,17 @@ function MessageList({ messages, streamingMessage }) {
                     {JSON.stringify(args, null, 2)}
                   </Text>
                 </div>
-              )
-            }
+              ),
+            };
           })}
         />
       </div>
-    )
-  }
+    );
+  };
 
   // 渲染来源信息
   const renderSources = (sources) => {
-    if (!sources || sources.length === 0) return null
+    if (!sources || sources.length === 0) return null;
 
     return (
       <div className="sources-section">
@@ -90,78 +92,81 @@ function MessageList({ messages, streamingMessage }) {
               <Tag color="green" size="small">
                 {source.file}
               </Tag>
-              <Text type="secondary">
-                工作表: {source.sheet}
-              </Text>
+              <Text type="secondary">工作表: {source.sheet}</Text>
             </div>
           ))}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   // 渲染单个消息
   const renderMessage = (message) => {
-    const isUser = message.role === 'user'
-    const isSystem = message.role === 'system'
-    const isStreaming = message.isStreaming
+    const isUser = message.role === "user";
+    const isSystem = message.role === "system";
+    const isTool = message.role === "tool";
 
     return (
-      <div 
-        key={message.id} 
-        className={`message-item ${isUser ? 'user' : isSystem ? 'system' : 'assistant'} ${isStreaming ? 'streaming' : ''}`}
+      <div
+        key={message.id}
+        className={`message-item ${
+          isUser ? "user" : isSystem ? "system" : isTool ? "tool" : "assistant"
+        }`}
       >
         <div className="message-avatar">
           {isUser ? (
             <UserOutlined />
           ) : isSystem ? (
             <ClockCircleOutlined />
+          ) : isTool ? (
+            <ToolOutlined />
           ) : (
             <RobotOutlined />
           )}
         </div>
-        
+
         <div className="message-content">
           <div className="message-header">
             <Text strong className="message-role">
-              {isUser ? '用户' : isSystem ? '系统' : 'AI助手'}
+              {isUser
+                ? "用户"
+                : isSystem
+                ? "系统"
+                : isTool
+                ? "工具调用"
+                : "AI助手"}
             </Text>
             <Text type="secondary" className="message-time">
               {formatTime(message.timestamp)}
             </Text>
           </div>
-          
+
           <div className="message-body">
             {isSystem ? (
               <Text className="system-message">{message.content}</Text>
+            ) : isTool ? (
+              <div className="tool-message">
+                <Text className="tool-message-text">{message.content}</Text>
+                {renderToolCalls(message.toolCalls)}
+              </div>
             ) : (
-              <div className={`message-text ${isStreaming ? 'typing-cursor' : ''}`}>
+              <div className="message-text">
                 <ReactMarkdown>{message.content}</ReactMarkdown>
               </div>
             )}
-            
-            {/* 工具调用 */}
-            {renderToolCalls(message.toolCalls)}
-            
+
+            {/* 工具调用（仅对非工具消息显示） */}
+            {!isTool && renderToolCalls(message.toolCalls)}
+
             {/* 来源信息 */}
             {renderSources(message.sources)}
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
-  // 合并消息列表和流式消息
-  const allMessages = [...messages]
-  if (streamingMessage) {
-    allMessages.push(streamingMessage)
-  }
-
-  return (
-    <div className="message-list">
-      {allMessages.map(renderMessage)}
-    </div>
-  )
+  return <div className="message-list">{messages.map(renderMessage)}</div>;
 }
 
-export default MessageList
+export default MessageList;
