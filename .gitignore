@@ -5,6 +5,8 @@
 # roadhog-api-doc ignore
 /src/utils/request-temp.js
 _roadhog-api-doc
+/knowledge_base
+/vector_store
 
 # production
 /dist

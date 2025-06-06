@@ -214,16 +214,17 @@ class EnhancedRAGSystem:
         current_hashes = {}
         files_changed = False
 
-        # 检查所有Excel文件
-        for file_path in self.knowledge_base_dir.glob("*.xlsx"):
-            current_hash = self._calculate_file_hash(file_path)
-            file_key = str(file_path.relative_to(self.knowledge_base_dir))
-            current_hashes[file_key] = current_hash
+        # 检查所有Excel文件（同时支持 .xlsx 和 .xls）
+        for pattern in ["*.xlsx", "*.xls"]:
+            for file_path in self.knowledge_base_dir.glob(pattern):
+                current_hash = self._calculate_file_hash(file_path)
+                file_key = str(file_path.relative_to(self.knowledge_base_dir))
+                current_hashes[file_key] = current_hash
 
-            # 检查是否是新文件或文件已修改
-            if file_key not in self.file_hashes or self.file_hashes[file_key] != current_hash:
-                files_changed = True
-                print(f"检测到文件变化: {file_key}")
+                # 检查是否是新文件或文件已修改
+                if file_key not in self.file_hashes or self.file_hashes[file_key] != current_hash:
+                    files_changed = True
+                    print(f"检测到文件变化: {file_key}")
 
         # 检查是否有文件被删除
         for file_key in self.file_hashes:
@@ -243,7 +244,11 @@ class EnhancedRAGSystem:
         print(f"正在从知识库目录加载Excel文件...")
         all_docs = []
 
-        excel_files = list(self.knowledge_base_dir.glob("*.xlsx"))
+        # 收集所有Excel文件（同时支持 .xlsx 和 .xls）
+        excel_files = []
+        for pattern in ["*.xlsx", "*.xls"]:
+            excel_files.extend(list(self.knowledge_base_dir.glob(pattern)))
+
         if not excel_files:
             print(f"警告：在知识库目录中未找到任何Excel文件。")
             return []
@@ -688,12 +693,19 @@ async def web_demo():
 async def health_check():
     """健康检查端点"""
     rag = get_rag_system()
+
+    # 计算所有Excel文件数量（同时支持 .xlsx 和 .xls）
+    knowledge_base_path = Path(KNOWLEDGE_BASE_DIR)
+    excel_files_count = 0
+    for pattern in ["*.xlsx", "*.xls"]:
+        excel_files_count += len(list(knowledge_base_path.glob(pattern)))
+
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "vector_store_ready": rag.vector_store is not None,
         "last_update": rag.last_update_time.isoformat() if rag.last_update_time else None,
-        "knowledge_base_files": len(list(Path(KNOWLEDGE_BASE_DIR).glob("*.xlsx")))
+        "knowledge_base_files": excel_files_count
     }
 
 @app.post("/v1/files/upload", response_model=FileUploadResponse)
@@ -1078,22 +1090,24 @@ async def list_files():
         knowledge_base_path = Path(KNOWLEDGE_BASE_DIR)
         files = []
 
-        for file_path in knowledge_base_path.glob("*.xlsx"):
-            file_stat = file_path.stat()
-            file_hash = ""
-            try:
-                with open(file_path, "rb") as f:
-                    content = f.read()
-                    file_hash = hashlib.md5(content).hexdigest()
-            except Exception:
-                pass
+        # 同时支持 xlsx 和 xls 文件
+        for pattern in ["*.xlsx", "*.xls"]:
+            for file_path in knowledge_base_path.glob(pattern):
+                file_stat = file_path.stat()
+                file_hash = ""
+                try:
+                    with open(file_path, "rb") as f:
+                        content = f.read()
+                        file_hash = hashlib.md5(content).hexdigest()
+                except Exception:
+                    pass
 
-            files.append({
-                "filename": file_path.name,
-                "size": file_stat.st_size,
-                "modified_time": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
-                "file_hash": file_hash
-            })
+                files.append({
+                    "filename": file_path.name,
+                    "size": file_stat.st_size,
+                    "modified_time": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                    "file_hash": file_hash
+                })
 
         return {
             "files": files,
@@ -1203,7 +1217,12 @@ async def startup_event():
     rag = get_rag_system()
 
     # 如果知识库中有文件但没有向量数据库，则构建
-    knowledge_files = list(Path(KNOWLEDGE_BASE_DIR).glob("*.xlsx"))
+    # 检查所有Excel文件（同时支持 .xlsx 和 .xls）
+    knowledge_files = []
+    knowledge_base_path = Path(KNOWLEDGE_BASE_DIR)
+    for pattern in ["*.xlsx", "*.xls"]:
+        knowledge_files.extend(list(knowledge_base_path.glob(pattern)))
+
     if knowledge_files and rag.vector_store is None:
         print("检测到知识库文件但向量数据库不存在，正在构建...")
         rag.rebuild_vector_store()
